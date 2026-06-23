@@ -1,0 +1,151 @@
+sectors:
+  AAPL:
+    sector: "Technology"
+    industry: "Consumer Electronics"
+  MSFT:
+    sector: "Technology"
+    industry: "Software—Infrastructure"
+  GOOGL:
+    sector: "Communication Services"
+    industry: "Internet Content & Information"
+  AMZN:
+    sector: "Consumer Cyclical"
+    industry: "Internet Retail"
+  NVDA:
+    sector: "Technology"
+    industry: "Semiconductors"
+  META:
+    sector: "Communication Services"
+    industry: "Internet Content & Information"
+  TSLA:
+    sector: "Consumer Cyclical"
+    industry: "Auto Manufacturers"
+  LLY:
+    sector: "Healthcare"
+    industry: "Drug Manufacturers—General"
+  V:
+    sector: "Financial Services"
+    industry: "Credit Services"
+  UNH:
+    sector: "Healthcare"
+    industry: "Healthcare Plans"
+  JPM:
+    sector: "Financial Services"
+    industry: "Banks—Diversified"
+  JNJ:
+    sector: "Healthcare"
+    industry: "Drug Manufacturers—General"
+  WMT:
+    sector: "Consumer Defensive"
+    industry: "Discount Stores"
+  XOM:
+    sector: "Energy"
+    industry: "Oil & Gas Integrated"
+  PG:
+    sector: "Consumer Defensive"
+    industry: "Household & Personal Products"
+  AVGO:
+    sector: "Technology"
+    industry: "Semiconductors"
+  HD:
+    sector: "Consumer Cyclical"
+    industry: "Home Improvement Retail"
+  CVX:
+    sector: "Energy"
+    industry: "Oil & Gas Integrated"
+  ORCL:
+    sector: "Technology"
+    industry: "Software—Infrastructure"
+  MRK:
+    sector: "Healthcare"
+    industry: "Drug Manufacturers—General"
+  KO:
+    sector: "Consumer Defensive"
+    industry: "Beverages—Non-Alcoholic"
+  ABBV:
+    sector: "Healthcare"
+    industry: "Drug Manufacturers—General"
+  PEP:
+    sector: "Consumer Defensive"
+    industry: "Beverages—Non-Alcoholic"
+  COST:
+    sector: "Consumer Defensive"
+    industry: "Discount Stores"
+  BAC:
+    sector: "Financial Services"
+    industry: "Banks—Diversified"
+  ADBE:
+    sector: "Technology"
+    industry: "Software—Application"
+  MCD:
+    sector: "Consumer Cyclical"
+    industry: "Restaurants"
+  CSCO:
+    sector: "Technology"
+    industry: "Communication Equipment"
+  AMD:
+    sector: "Technology"
+    industry: "Semiconductors"
+  NFLX:
+    sector: "Communication Services"
+    industry: "Entertainment"
+  CRM:
+    sector: "Technology"
+    industry: "Software—Application"
+  TMO:
+    sector: "Healthcare"
+    industry: "Diagnostics & Research"
+  ABT:
+    sector: "Healthcare"
+    industry: "Medical Devices"
+  NKE:
+    sector: "Consumer Cyclical"
+    industry: "Footwear & Accessories"
+  DIS:
+    sector: "Communication Services"
+    industry: "Entertainment"
+  CMCSA:
+    sector: "Communication Services"
+    industry: "Entertainment"
+  PFE:
+    sector: "Healthcare"
+    industry: "Drug Manufacturers—General"
+  DHR:
+    sector: "Healthcare"
+    industry: "Diagnostics & Research"
+  INTU:
+    sector: "Technology"
+    industry: "Software—Application"
+  WFC:
+    sector: "Financial Services"
+    industry: "Banks—Diversified"
+  VZ:
+    sector: "Communication Services"
+    industry: "Telecom Services"
+  AMGN:
+    sector: "Healthcare"
+    industry: "Drug Manufacturers—Specialty & Generic"
+  TXN:
+    sector: "Technology"
+    industry: "Semiconductors"
+  PM:
+    sector: "Consumer Defensive"
+    industry: "Tobacco"
+  COP:
+    sector: "Energy"
+    industry: "Oil & Gas E&P"
+  MS:
+    sector: "Financial Services"
+    industry: "Capital Markets"
+  HON:
+    sector: "Industrials"
+    industry: "Conglomerates"
+  AMAT:
+    sector: "Technology"
+    industry: "Semiconductor Equipment"
+  CAT:
+    sector: "Industrials"
+    industry: "Farm & Heavy Construction Machinery"
+  LMT:
+    sector: "Industrials"
+    industry: "Aerospace & Defense"

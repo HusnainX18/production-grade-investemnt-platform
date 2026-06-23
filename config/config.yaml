@@ -1,0 +1,71 @@
+aws:
+  region: "us-east-1"
+  s3_bucket: "investment-platform-husnain"
+  kinesis_stream: "investment-platform-market-stream"
+
+assets:
+  # 50 Equities to track (Yahoo Finance tickers)
+  equities:
+    - AAPL
+    - MSFT
+    - GOOGL
+    - AMZN
+    - NVDA
+    - META
+    - TSLA
+    - LLY
+    - V
+    - UNH
+    - JPM
+    - JNJ
+    - WMT
+    - XOM
+    - PG
+    - AVGO
+    - HD
+    - CVX
+    - ORCL
+    - MRK
+    - KO
+    - ABBV
+    - PEP
+    - COST
+    - BAC
+    - ADBE
+    - MCD
+    - CSCO
+    - AMD
+    - NFLX
+    - CRM
+    - TMO
+    - ABT
+    - NKE
+    - DIS
+    - CMCSA
+    - PFE
+    - DHR
+    - INTU
+    - WFC
+    - VZ
+    - AMGN
+    - TXN
+    - PM
+    - COP
+    - MS
+    - HON
+    - AMAT
+    - CAT
+    - LMT
+
+  # 10 Cryptocurrencies to track (CoinGecko IDs)
+  crypto:
+    - bitcoin
+    - ethereum
+    - binancecoin
+    - ripple
+    - cardano
+    - solana
+    - polkadot
+    - dogecoin
+    - avalanche-2
+    - chainlink
