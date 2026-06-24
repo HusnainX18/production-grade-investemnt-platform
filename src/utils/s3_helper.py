@@ -71,3 +71,19 @@ def write_silver_delta(df, table_name, mode="overwrite"):
         mode=mode,
         schema_mode="overwrite" if mode == "overwrite" else None,
     )
+
+def write_gold_delta(df, table_name, mode="overwrite"):
+    """
+    Write a Pandas DataFrame directly to S3 as a Gold Delta table.
+    """
+    storage_options = get_storage_options()
+    s3_path = get_s3_path(table_name, layer="gold")
+    
+    write_deltalake(
+        s3_path,
+        df,
+        storage_options=storage_options,
+        mode=mode,
+        schema_mode="overwrite" if mode == "overwrite" else None,
+    )
+

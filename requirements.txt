@@ -10,3 +10,5 @@ python-dotenv>=1.0.1
 pytest>=8.0.0
 pyarrow>=14.0.0
 great_expectations>=0.18.0
+transformers>=4.38.0
+torch>=2.2.0
