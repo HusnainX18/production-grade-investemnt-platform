@@ -27,31 +27,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install dbt-databricks databricks-sql-connector
 
-      - name: Configure dbt profiles
-        run: |
-          mkdir -p ~/.dbt
-          cat > ~/.dbt/profiles.yml << EOF
-          dbt_project:
-            outputs:
-              dev:
-                type: databricks
-                catalog: workspace
-                schema: default
-                host: ${{ secrets.DBT_DATABRICKS_HOST }}
-                http_path: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
-                token: ${{ secrets.DBT_DATABRICKS_TOKEN }}
-                threads: 4
-            target: dev
-          EOF
-
       - name: dbt debug
         working-directory: dbt_project
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
         run: dbt debug
 
       - name: dbt run
         working-directory: dbt_project
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
         run: dbt run --target dev
 
       - name: dbt test
         working-directory: dbt_project
+        env:
+          DBT_DATABRICKS_HOST: ${{ secrets.DBT_DATABRICKS_HOST }}
+          DBT_DATABRICKS_HTTP_PATH: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+          DBT_DATABRICKS_TOKEN: ${{ secrets.DBT_DATABRICKS_TOKEN }}
         run: dbt test --target dev
