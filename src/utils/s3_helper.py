@@ -21,16 +21,14 @@ def get_storage_options():
     aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
     aws_region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
     
-    # Try to load standard AWS CLI environment variables first
-    # If not set, let delta-rs rely on the default provider chain (which reads ~/.aws/credentials)
-    opts = {}
-    if aws_key:
-        opts["aws_access_key_id"] = aws_key
-    if aws_secret:
-        opts["aws_secret_access_key"] = aws_secret
-    if aws_region:
-        opts["aws_region"] = aws_region
+    if not aws_key or not aws_secret:
+        raise ValueError("AWS credentials (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY) must be set when LOCAL_DEV is false.")
         
+    opts = {
+        "aws_access_key_id": aws_key,
+        "aws_secret_access_key": aws_secret,
+        "aws_region": aws_region
+    }
     return opts
 
 def get_s3_path(table_name, layer="bronze"):

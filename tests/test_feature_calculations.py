@@ -24,7 +24,8 @@ def test_compute_technical_indicators():
         "high": close_prices,
         "low": close_prices,
         "open": close_prices,
-        "volume": [1000] * 10
+        "volume": [1000] * 10,
+        "sector": ["Technology"] * 10
     })
     
     res = compute_technical_indicators(df)

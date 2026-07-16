@@ -1,4 +1,4 @@
-﻿"""
+"""
 Silver-to-Gold Feature Engineering Pipeline.
 
 Loads Silver Delta tables (stocks, crypto, macro, news) from AWS S3 Data Lake, computes technical indicators,
@@ -182,7 +182,10 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[idx, "target_smooth_return"] = target_smooth
 
     # Compute Relative Strength vs Sector globally (requires cross-sectional grouping)
-    df["rel_strength_sector"] = df["return_1d"] - df.groupby(["sector", "timestamp"])["return_1d"].transform("mean")
+    if "sector" in df.columns and "timestamp" in df.columns:
+        df["rel_strength_sector"] = df["return_1d"] - df.groupby(["sector", "timestamp"])["return_1d"].transform("mean")
+    else:
+        df["rel_strength_sector"] = np.nan
     cols_to_add.append("rel_strength_sector")
 
     # Explicitly cast technical columns as float
