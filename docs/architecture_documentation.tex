@@ -1,0 +1,209 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{fancyhdr}
+\usepackage{titlesec}
+\usepackage{enumitem}
+
+% Setup links
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={MarketPulse System Architecture Documentation},
+    pdfpagemode=FullScreen,
+}
+
+% Header and Footer styling
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{MarketPulse Pipeline Documentation}
+\lfoot{\copyright\ 2026 Alphabridge}
+\rfoot{Page \thepage}
+
+% Section styling
+\titleformat{\section}
+  {\normalfont\Large\bfseries}{\thesection}{1em}{}[{\titlerule[0.8pt]}]
+
+\titleformat{\subsection}
+  {\normalfont\large\bfseries}{\thesubsection}{1em}{}
+
+% Listings styling for DDL or config snippets
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\begin{document}
+
+% ─── TITLE PAGE ──────────────────────────────────────────────────────────────
+\begin{titlepage}
+    \centering
+    \vspace*{3cm}
+    {\Huge \bfseries MarketPulse Pipeline \\ [0.4cm] System Architecture Documentation} \\
+    \vspace{2cm}
+    {\Large \bfseries Husnain Ahmed} \\
+    {\large Data Engineering Intern} \\
+    {\large \bfseries ALPHABRIDGE} \\
+    \vspace{2cm}
+    {\large July 17, 2026} \\
+    \vfill
+    \begin{minipage}{0.8\textwidth}
+        \centering
+        \itshape
+        A comprehensive overview of the end-to-end data engineering, machine
+        learning, and production serving architecture for the MarketPulse financial
+        platform, implemented using AWS and Databricks.
+    \end{minipage}
+    \vspace*{2cm}
+\end{titlepage}
+
+\newpage
+\tableofcontents
+\newpage
+
+% ─── SECTION 1: PROJECT OVERVIEW ──────────────────────────────────────────────
+\section{Project Overview}
+MarketPulse is a production-grade, end-to-end global markets data platform designed to ingest, process, and serve financial market data at scale. The platform architecture is designed to support both high-frequency streaming market feeds and large-scale historical batch analytics using a modern medallion lakehouse paradigm. 
+
+The system is built on a robust hybrid cloud architecture utilizing AWS serverless storage and streaming components alongside Databricks cluster computing. The pipeline ingests multi-modal data (stock and cryptocurrency trades, macroeconomic indices, and financial headlines), cleanses and transforms it through structured lakehouse layers (Bronze $\rightarrow$ Silver $\rightarrow$ Gold), runs daily sentiment analysis using FinBERT, trains return-forecasting machine learning models, and serves outputs via real-time caches, data warehouses, and interactive Streamlit applications.
+
+% ─── SECTION 2: DATA EXTRACTION ZONE ──────────────────────────────────────────
+\section{Data Extraction Zone}
+This layer handles the complex ingestion of both high-frequency streaming trade data and historical batch data from disparate financial, economic, and news APIs. It acts as the primary data gateway.
+
+\subsection{External Data Sources}
+To ensure the downstream analytics and machine learning engines receive a multi-dimensional view of the market, data is collected from four distinct sources:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Alpaca API (Stocks \& Crypto):} Serves as the primary source for streaming market quotes and trade events. Alpaca WebSockets push high-frequency trade ticks into the streaming queue.
+    \item \textbf{Yahoo Finance / yfinance API:} Acts as the historical data bootstrap. It is polled during execution to download a 5-year retrospective of daily OHLCV (Open, High, Low, Close, Volume) bars.
+    \item \textbf{FRED (Federal Reserve Economic Data) API:} Polled periodically to download key macroeconomic indicators (e.g., inflation indices, interest rates, GDP growth) to provide macro context to models.
+    \item \textbf{NewsAPI:} Financial news headlines are pulled continuously and processed via FinBERT, a domain-adapted NLP model, to classify headlines into numeric sentiment scores.
+\end{itemize}
+
+\subsection{AWS Streaming \& Storage Integration}
+Data is staged in the AWS cloud ecosystem prior to processing:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{AWS Kinesis Data Streams:} A serverless, auto-scaling streaming queue configured in On-Demand mode. It acts as a buffer for the live quote stream from the Alpaca WebSocket producers.
+    \item \textbf{Amazon S3 Data Lake (ADLS Gen2 equivalent):} Served as the central enterprise data lake. The bucket contains three folder partitions representing the lakehouse stages: \texttt{s3://marketpulse-datalake/bronze/}, \texttt{s3://marketpulse-datalake/silver/}, and \texttt{s3://marketpulse-datalake/gold/}.
+\end{itemize}
+
+% ─── SECTION 3: ARCHITECTURAL DEVIATIONS & COST OPTIMIZATION ──────────────────
+\section{Architectural Deviations \& Cost Optimization}
+The architecture departs from standard Supervisor guidelines to optimize cloud costs, lower serving latencies, and increase modularity.
+
+\subsection{Serving Layer: Streamlit App vs. AWS QuickSight}
+While the initial project specification proposed using AWS QuickSight connected directly to Amazon Redshift, the implementation provides a dual-serving interface:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Streamlit Dashboard:} A custom Python dashboard connected to Databricks SQL Warehouse and DynamoDB. It provides real-time tick monitoring and backtest reports with no user-licensing fees.
+    \item \textbf{QuickSight Integration:} Redshift Serverless tables are made available for drag-and-drop corporate reporting. By caching active dashboard queries in the serverless Streamlit app, we minimize active Redshift warehouse hours, saving up to 80\% in serving costs.
+\end{itemize}
+
+\subsection{MLOps Layer: Decoupled MLflow Registry vs. AWS SageMaker}
+Rather than utilizing fully managed AWS SageMaker pipelines:
+\begin{itemize}[leftmargin=*]
+    \item Ephemeral python containers run training logic (\texttt{train.py}), logging parameters and metrics directly into a local, decoupled \textbf{MLflow Registry} (\texttt{mlruns.db}).
+    \item Storing the verified model parameters in an open-source MLflow database hosted on a basic EC2 server eliminates SageMaker continuous endpoint hosting fees.
+\end{itemize}
+
+% ─── SECTION 4: DATABRICKS DATA TRANSFORMATION ZONE ───────────────────────────
+\section{Databricks Data Transformation Zone}
+The processing layer enforces the Medallion lakehouse pattern using Databricks cluster computing:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{S3 Bronze Layer (Raw):} Initial delta tables where streaming ticks and batch files are written as-is, with basic deduplication based on unique timestamp and symbol.
+    \item \textbf{S3 Silver Layer (Cleaned):} Spark jobs read Bronze tables, clean data types, join with reference sector files, handle null fields, and run news sentiment inference.
+    \item \textbf{S3 Gold Layer (Analytics-Ready):} Computes multi-period technical indicators (RSI, MACD, Bollinger Bands, Moving Averages) and merges them with macro indices.
+    \item \textbf{dbt Core (Databricks SQL):} Governs the transformation. Instead of ad-hoc SQL, dbt runs staging and marts models on the Databricks SQL Warehouse, running data quality tests to validate results.
+\end{itemize}
+
+% ─── SECTION 5: MLOPS \& TRAINING ZONE ────────────────────────────────────────
+\section{MLOps \& Training Zone}
+This layer isolates the heavy computational training workloads:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Training Host (train.py):} Local Docker containers query historical features from the Gold Delta tables, train an LSTM network to forecast returns, and evaluate performance.
+    \item \textbf{MLflow Registry:} Logs hyperparameter runs, evaluation curves, and packages the champion model.
+\end{itemize}
+
+% ─── SECTION 6: PRODUCTION SERVING ZONE ───────────────────────────────────────
+\section{Production Serving Zone}
+Handles live serving and client requests with sub-millisecond latency:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Amazon DynamoDB Table:} Acts as the low-latency real-time feature store cache. An active Kinesis consumer parses incoming quotes and updates DynamoDB.
+    \item \textbf{Amazon Redshift Serverless:} Acts as the analytical data warehouse. Historical gold marts are loaded into Redshift via \texttt{AWS\_sql\_loader.py}.
+\end{itemize}
+
+% ─── SECTION 7: ORCHESTRATION \& AUTOMATION ZONE ──────────────────────────────
+\section{Orchestration \& Automation Zone}
+A local Apache Airflow container host manages and schedules the pipelines:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{DAG 1 - Ingest (1\_ingest\_bronze):} Triggers batch python producers to download data and upload raw files to S3 Bronze.
+    \item \textbf{DAG 2 - Process (2\_process\_silver\_gold):} Coordinates PySpark scripts to clean and build Silver/Gold delta tables.
+    \item \textbf{DAG 3 - Transform (3\_transform\_dbt):} Executes \texttt{dbt run} and \texttt{dbt test} on Databricks SQL.
+    \item \textbf{DAG 4 - Quality (4\_data\_quality\_checks):} Triggers Great Expectations data verification.
+    \item \textbf{DAG 5 - ML (5\_ml\_nightly\_retrain):} retrains model, logs runs, and updates Redshift warehouse.
+\end{itemize}
+
+% ─── SECTION 8: SYSTEM SYNTHESIS ──────────────────────────────────────────────
+\section{Comprehensive System Synthesis \& Architectural Mechanics}
+
+\subsection{End-to-End Operational Workflow \& Communication Protocols}
+The flow of data and execution mechanics across the platform is structured as follows:
+\begin{enumerate}
+    \item \textbf{Streaming Ingest:} WebSocket clients connect to Alpaca, sending quotes via JSON over TCP. A Python Kinesis producer publishes records to Kinesis.
+    \item \textbf{Batch Ingest:} Airflow triggers \texttt{ingest\_*.py} scripts to download daily historical OHLCV data from yfinance, FRED, and NewsAPI via HTTPS, writing Parquet data to the S3 Bronze layer.
+    \item \textbf{Durable Buffering:} Real-time trade quotes are asynchronously buffered inside AWS Kinesis Stream. Concurrently, a Kinesis consumer parses the stream and updates the DynamoDB table.
+    \item \textbf{Databricks Processing:} Databricks Spark clusters read raw delta tables from S3 Bronze, clean and validate schemas, and write standardized outputs to S3 Silver. Technical indicators are computed and written to S3 Gold.
+    \item \textbf{dbt Transformations:} dbt compiles and runs SQL models on the Databricks SQL Warehouse, outputting gold feature marts.
+    \item \textbf{MLflow Tracking:} A container task pulls gold tables, trains the LSTM forecaster, and registers the model to MLflow.
+    \item \textbf{Redshift Sync:} Gold tables are copied from S3 to Amazon Redshift Serverless via the Redshift Data API.
+    \item \textbf{BI Consumption:} Streamlit dashboard queries Databricks SQL (historical charts) and DynamoDB (live quote ticker), while QuickSight queries Redshift.
+\end{enumerate}
+
+\subsection{Granular Tool Functional Objectives}
+\begin{table}[htbp]
+\centering
+\caption{System Component Matrix}
+\begin{tabular}{lll}
+\toprule
+\textbf{Technology} & \textbf{Role in Pipeline} & \textbf{Objective} \\
+\midrule
+Alpaca / yfinance & Data Source Ingestion & Multi-modal financial telemetry feed \\
+AWS Kinesis Streams & Streaming Buffer & Real-time tick ingestion queue \\
+Amazon S3 & Medallion Data Lake & Decoupled storage for Bronze/Silver/Gold layers \\
+Databricks & Cluster Computing & Big data Spark processing \& dbt Core SQL execution \\
+dbt Core & SQL Transformation & Version-controlled semantic indicators (RSI, MACD) \\
+Apache Airflow & Pipeline Orchestration & Automated DAG scheduling \& error notification \\
+MLflow Registry & MLOps Governance & Experiment tracking \& registered champion model catalog \\
+Amazon DynamoDB & Low-Latency Cache & Under 10ms real-time feature query store \\
+Amazon Redshift & Analytical Data Warehouse & Serving engine for QuickSight business intelligence \\
+Streamlit App & Interactive Front-end & Real-time quote feed \& backtest visualization UI \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\end{document}
