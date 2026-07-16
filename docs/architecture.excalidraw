@@ -2,11 +2,564 @@
   "type": "excalidraw",
   "version": 2,
   "source": "https://excalidraw.com",
-  "elements": [],
+  "elements": [
+    {
+      "id": "9edf95e3",
+      "type": "rectangle",
+      "x": 100,
+      "y": 200,
+      "width": 240,
+      "height": 90,
+      "strokeColor": "#1e88e5",
+      "backgroundColor": "#e3f2fd",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "efb47f93"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "57d656cf",
+      "type": "text",
+      "x": 101.0,
+      "y": 215.0,
+      "width": 238.0,
+      "height": 60,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "efb47f93"
+      ],
+      "roundness": null,
+      "text": "1. Ingestion Layer\n(Alpaca WebSocket, yfinance,\nFRED Macro, NewsAPI)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "9edf95e3",
+      "originalText": "1. Ingestion Layer\n(Alpaca WebSocket, yfinance,\nFRED Macro, NewsAPI)",
+      "isDeleted": false
+    },
+    {
+      "id": "de8e081d",
+      "type": "arrow",
+      "x": 340,
+      "y": 245,
+      "width": 80,
+      "height": 0,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          80,
+          0
+        ]
+      ],
+      "isDeleted": false
+    },
+    {
+      "id": "46a00a00",
+      "type": "rectangle",
+      "x": 420,
+      "y": 200,
+      "width": 200,
+      "height": 90,
+      "strokeColor": "#e65100",
+      "backgroundColor": "#fff3e0",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "dfc91b73"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "7b618b29",
+      "type": "text",
+      "x": 401.0,
+      "y": 225.0,
+      "width": 238.0,
+      "height": 40,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "dfc91b73"
+      ],
+      "roundness": null,
+      "text": "2. AWS Kinesis Stream\n(Streaming Ingestion Broker)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "46a00a00",
+      "originalText": "2. AWS Kinesis Stream\n(Streaming Ingestion Broker)",
+      "isDeleted": false
+    },
+    {
+      "id": "b18b9fa2",
+      "type": "arrow",
+      "x": 620,
+      "y": 245,
+      "width": 80,
+      "height": 0,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          80,
+          0
+        ]
+      ],
+      "isDeleted": false
+    },
+    {
+      "id": "d446f226",
+      "type": "rectangle",
+      "x": 700,
+      "y": 200,
+      "width": 220,
+      "height": 90,
+      "strokeColor": "#2e7d32",
+      "backgroundColor": "#e8f5e9",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "f5dc7ce7"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "7f76db7e",
+      "type": "text",
+      "x": 682.5,
+      "y": 225.0,
+      "width": 255.0,
+      "height": 40,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "f5dc7ce7"
+      ],
+      "roundness": null,
+      "text": "3. AWS S3 Lakehouse\n(Bronze / Silver / Gold Delta)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "d446f226",
+      "originalText": "3. AWS S3 Lakehouse\n(Bronze / Silver / Gold Delta)",
+      "isDeleted": false
+    },
+    {
+      "id": "10ea4af2",
+      "type": "arrow",
+      "x": 810,
+      "y": 290,
+      "width": 0,
+      "height": 70,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          70
+        ]
+      ],
+      "isDeleted": false
+    },
+    {
+      "id": "02bd6699",
+      "type": "rectangle",
+      "x": 700,
+      "y": 360,
+      "width": 220,
+      "height": 90,
+      "strokeColor": "#e65100",
+      "backgroundColor": "#fbe9e7",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "7fe93e9d"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "5d1cc44a",
+      "type": "text",
+      "x": 674.0,
+      "y": 385.0,
+      "width": 272.0,
+      "height": 40,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "7fe93e9d"
+      ],
+      "roundness": null,
+      "text": "4. Databricks PySpark & dbt\n(Medallion ETL & Model Registry)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "02bd6699",
+      "originalText": "4. Databricks PySpark & dbt\n(Medallion ETL & Model Registry)",
+      "isDeleted": false
+    },
+    {
+      "id": "97fea0d2",
+      "type": "arrow",
+      "x": 810,
+      "y": 450,
+      "width": 0,
+      "height": 70,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          70
+        ]
+      ],
+      "isDeleted": false
+    },
+    {
+      "id": "38ad818b",
+      "type": "rectangle",
+      "x": 700,
+      "y": 520,
+      "width": 220,
+      "height": 90,
+      "strokeColor": "#c62828",
+      "backgroundColor": "#ffebee",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "225d9820"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "78b870ae",
+      "type": "text",
+      "x": 686.75,
+      "y": 545.0,
+      "width": 246.5,
+      "height": 40,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "225d9820"
+      ],
+      "roundness": null,
+      "text": "5. Amazon Redshift Serverless\n(Serving Data Warehouse)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "38ad818b",
+      "originalText": "5. Amazon Redshift Serverless\n(Serving Data Warehouse)",
+      "isDeleted": false
+    },
+    {
+      "id": "74093951",
+      "type": "arrow",
+      "x": 700,
+      "y": 565,
+      "width": 80,
+      "height": 0,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          -80,
+          0
+        ]
+      ],
+      "isDeleted": false
+    },
+    {
+      "id": "cc551918",
+      "type": "rectangle",
+      "x": 420,
+      "y": 520,
+      "width": 200,
+      "height": 90,
+      "strokeColor": "#6a1b9a",
+      "backgroundColor": "#f3e5f5",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "03037a9e"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "73f598b0",
+      "type": "text",
+      "x": 430.75,
+      "y": 535.0,
+      "width": 178.5,
+      "height": 60,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "03037a9e"
+      ],
+      "roundness": null,
+      "text": "6. BI & Analytics\n(QuickSight Dashboard\n& Streamlit App)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "cc551918",
+      "originalText": "6. BI & Analytics\n(QuickSight Dashboard\n& Streamlit App)",
+      "isDeleted": false
+    },
+    {
+      "id": "f62b171e",
+      "type": "arrow",
+      "x": 520,
+      "y": 290,
+      "width": 0,
+      "height": 70,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          70
+        ]
+      ],
+      "isDeleted": false
+    },
+    {
+      "id": "aadd5278",
+      "type": "rectangle",
+      "x": 420,
+      "y": 360,
+      "width": 200,
+      "height": 90,
+      "strokeColor": "#37474f",
+      "backgroundColor": "#eceff1",
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "31884f3a"
+      ],
+      "roundness": {
+        "type": 3
+      },
+      "isDeleted": false
+    },
+    {
+      "id": "b556558c",
+      "type": "text",
+      "x": 413.75,
+      "y": 385.0,
+      "width": 212.5,
+      "height": 40,
+      "strokeColor": "#1a1a1a",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 1,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [
+        "31884f3a"
+      ],
+      "roundness": null,
+      "text": "7. Amazon DynamoDB\n(Low-latency Speed Cache)",
+      "fontSize": 14,
+      "fontFamily": 1,
+      "textAlign": "center",
+      "verticalAlign": "middle",
+      "containerId": "aadd5278",
+      "originalText": "7. Amazon DynamoDB\n(Low-latency Speed Cache)",
+      "isDeleted": false
+    },
+    {
+      "id": "27e882d0",
+      "type": "arrow",
+      "x": 520,
+      "y": 450,
+      "width": 0,
+      "height": 70,
+      "strokeColor": "#455a64",
+      "backgroundColor": "transparent",
+      "fillStyle": "hachure",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "groupIds": [],
+      "roundness": {
+        "type": 2
+      },
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          0,
+          70
+        ]
+      ],
+      "isDeleted": false
+    }
+  ],
   "appState": {
     "gridSize": 20,
-    "viewBackgroundColor": "#ffffff",
-    "theme": "dark"
+    "viewBackgroundColor": "#ffffff"
   },
   "files": {}
 }
