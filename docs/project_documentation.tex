@@ -77,11 +77,51 @@ Data is organized into three distinct structural layers in AWS S3:
     \item \textbf{Gold (Analytics-Ready):} Joined tables containing daily asset values, macro variables, calculated technical indicators, and feature vectors.
 \end{enumerate}
 
-\subsection{Data Flow Schema}
-Ingested events move sequentially through:
-\[
-\text{Alpaca API} \xrightarrow{\text{Kinesis Stream}} \text{Bronze (S3)} \xrightarrow{\text{PySpark Cleaning}} \text{Silver (S3)} \xrightarrow{\text{dbt compilation}} \text{Gold (S3)} \xrightarrow{\text{Redshift Loader}} \text{BI / Serving}
-\]
+\subsection{System Architecture Diagram}
+Below is the visual schematic diagram of the complete MarketPulse platform data flow, compiled natively using the \LaTeX\ \texttt{tikz} library:
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=1.5cm,
+    block/.style={rectangle, draw=black, fill=blue!10, rounded corners, minimum width=2.5cm, minimum height=1cm, align=center, font=\small},
+    storage/.style={cylinder, shape border rotate=90, draw=black, fill=green!10, minimum width=2cm, minimum height=1cm, align=center, font=\small},
+    compute/.style={rectangle, draw=black, fill=orange!10, rounded corners, minimum width=2.5cm, minimum height=1cm, align=center, font=\small},
+    serving/.style={rectangle, draw=black, fill=red!10, rounded corners, minimum width=2.5cm, minimum height=1cm, align=center, font=\small},
+    arrow/.style={thick,->,>=stealth}
+]
+
+    % Ingestion Layer
+    \node (ingest) [block] {Ingestion Layer \\ (Alpaca, yfinance, FRED)};
+    
+    % Streaming Broker
+    \node (kinesis) [compute, right of=ingest, node distance=3.8cm] {AWS Kinesis \\ Stream};
+    
+    % S3 Data Lake (Bronze/Silver/Gold)
+    \node (s3) [storage, right of=kinesis, node distance=3.8cm] {AWS S3 \\ Medallion Lake};
+    
+    % Databricks Spark Processing
+    \node (databricks) [compute, below of=s3, node distance=2.2cm] {Databricks PySpark \\ \& dbt};
+    
+    % Redshift Warehouse
+    \node (redshift) [serving, below of=databricks, node distance=2.2cm] {Amazon Redshift \\ Serverless};
+    
+    % QuickSight / UI
+    \node (ui) [block, left of=redshift, node distance=3.8cm] {QuickSight \\ \& Streamlit UI};
+    
+    % DynamoDB Online Cache
+    \node (ddb) [storage, left of=databricks, node distance=3.8cm] {DynamoDB \\ Feature Store};
+
+    % Connections
+    \draw [arrow] (ingest) -- (kinesis);
+    \draw [arrow] (kinesis) -- (s3);
+    \draw [arrow] (s3) -- (databricks);
+    \draw [arrow] (databricks) -- (redshift);
+    \draw [arrow] (redshift) -- (ui);
+    \draw [arrow] (kinesis) |- (ddb);
+    \draw [arrow] (ddb) -- (ui);
+
+\end{tikzpicture}
+\end{center}
 
 \section{Key Technical Decisions \& Workarounds}
 Building this production-grade system required overcoming several platform incompatibilities:
