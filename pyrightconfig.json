@@ -3,12 +3,14 @@
   "venvPath": ".",
   "venv": ".venv",
   "extraPaths": [
-    "."
+    ".",
+    "airflow/dags"
   ],
   "include": [
     "src",
     "notebooks",
-    "tests"
+    "tests",
+    "airflow/dags"
   ],
   "exclude": [
     "**/__pycache__",
@@ -16,5 +18,9 @@
     ".venv"
   ],
   "reportMissingImports": "warning",
-  "reportMissingModuleSource": "none"
+  "reportMissingModuleSource": "none",
+  "reportUnknownMemberType": "none",
+  "reportUnknownVariableType": "none",
+  "reportUnknownArgumentType": "none",
+  "reportAny": "none"
 }

@@ -1,7 +1,7 @@
-aws:
-  region: "us-east-1"
-  s3_bucket: "investment-platform-husnain"
-  kinesis_stream: "investment-platform-market-stream"
+azure:
+  storage_account: "invplatformhusnain"
+  container: "investment-platform"
+  event_hub_name: "market-data-stream"
 
 assets:
   # 50 Equities to track (Yahoo Finance tickers)

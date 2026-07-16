@@ -1,9 +1,9 @@
-"""
+﻿"""
 Silver-to-Gold Feature Engineering Pipeline.
 
-Loads Silver Delta tables (stocks, crypto, macro, news) from S3, computes technical indicators,
+Loads Silver Delta tables (stocks, crypto, macro, news) from AWS S3 Data Lake, computes technical indicators,
 macroeconomic features, and FinBERT daily sentiment, merges them on date/ticker,
-calculates target variables, and writes the unified feature table to the S3 Gold layer.
+calculates target variables, and writes the unified feature table to the AWS S3 Data Lake Gold layer.
 """
 
 import os
@@ -16,8 +16,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 if sys.platform.startswith("win"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore
     except Exception:
         pass
 
@@ -29,43 +29,44 @@ from deltalake import DeltaTable
 
 from src.utils.s3_helper import get_storage_options, get_s3_path, write_gold_delta
 
-# Global flag and model check for FinBERT
+# Global flag and classifier reference for FinBERT
 use_finbert = False
-classifier = None
+_classifier = None
 
 try:
-    print("🤖 Attempting to load Hugging Face transformers for FinBERT...")
+    print(" Attempting to load Hugging Face transformers for FinBERT...")
     from transformers import pipeline
     import torch
-    
-    # Check if GPU is available (though device=-1 forces CPU for reliability in local VM environments)
+
+    # Use CPU for reliability in containerised environments without NVIDIA drivers
     device = 0 if torch.cuda.is_available() else -1
     print(f"   PyTorch loaded successfully. CUDA available: {torch.cuda.is_available()} (Using device: {device})")
-    
-    print("🤖 Loading FinBERT model (yiyanghkust/finbert-tone)...")
-    classifier = pipeline(
-        "sentiment-analysis",
+
+    print(" Loading FinBERT model (yiyanghkust/finbert-tone)...")
+    _classifier = pipeline(
+        "text-classification",
         model="yiyanghkust/finbert-tone",
         tokenizer="yiyanghkust/finbert-tone",
-        device=device
+        device=device,
+        top_k=None,  # Return all class scores
     )
     use_finbert = True
-    print("   ✅ FinBERT loaded successfully!")
+    print("    FinBERT loaded successfully!")
 except Exception as ex:
-    print(f"   ⚠️ FinBERT load failed or transformers not fully installed: {ex}")
-    print("   ⚠️ Falling back to local rule-based lexicon for news sentiment.")
+    print(f"   [WARNING] FinBERT load failed or transformers not fully installed: {ex}")
+    print("   [WARNING] Falling back to local rule-based lexicon for news sentiment.")
     use_finbert = False
 
 
 def load_silver_table(table_name: str) -> pd.DataFrame:
-    """Read a Silver Delta table from S3 and return a Pandas DataFrame."""
+    """Read a Silver Delta table from AWS S3 Data Lake and return a Pandas DataFrame."""
     s3_path = get_s3_path(table_name, layer="silver")
-    print(f"📂 Loading Silver {table_name.upper()} table from {s3_path}...")
+    print(f" Loading Silver {table_name.upper()} table from {s3_path}...")
     try:
         dt = DeltaTable(s3_path, storage_options=get_storage_options())
         return dt.to_pandas()
     except Exception as e:
-        print(f"   ⚠️ Could not load {table_name.upper()}: {e}")
+        print(f"   [WARNING] Could not load {table_name.upper()}: {e}")
         return pd.DataFrame()
 
 
@@ -74,23 +75,25 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
     Calculate technical indicators and target variables grouped by asset symbol.
     
     Indicators: SMAs (20, 50, 200), RSI (14), MACD, Bollinger Bands, rolling returns (1d, 5d, 20d),
-    and price volatility.
-    Targets: target_1d_return (next-day return), target_5d_return (next 5 days return).
+    price volatility, volume ratio, 52-week price position, momentum acceleration, volatility regime ratio,
+    relative strength vs sector, and target smooth returns.
     """
-    print("📈 Computing technical indicators & targets...")
+    print(" Computing technical indicators & targets...")
     df = df.sort_values(["symbol", "timestamp"]).copy()
     
     # Pre-allocate columns
     cols_to_add = [
         "sma_20", "sma_50", "sma_200", "rsi_14", "macd", "macd_signal", "macd_hist",
         "bb_upper", "bb_lower", "bb_width", "return_1d", "return_5d", "return_20d",
-        "volatility_20d", "target_1d_return", "target_5d_return"
+        "volatility_20d", "volume_ratio", "price_position_52w", "momentum_acceleration",
+        "vol_regime_ratio", "target_1d_return", "target_5d_return", "target_smooth_return"
     ]
     for c in cols_to_add:
         df[c] = np.nan
         
     for symbol, group in df.groupby("symbol"):
         close = group["close"]
+        volume = group["volume"]
         
         # Simple Moving Averages
         sma_20 = close.rolling(window=20).mean()
@@ -128,11 +131,31 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         # Price Volatility (20d rolling standard deviation of 1d returns)
         vol_20d = ret_1d.rolling(window=20).std()
         
+        # 1. Volume Ratio (today's volume vs 20d moving average)
+        vol_mean_20 = volume.rolling(window=20).mean()
+        volume_ratio = volume / (vol_mean_20 + 1e-9)
+
+        # 2. Price Position 52w (252 trading days)
+        min_52w = close.rolling(window=252, min_periods=20).min()
+        max_52w = close.rolling(window=252, min_periods=20).max()
+        price_position_52w = (close - min_52w) / (max_52w - min_52w + 1e-9)
+
+        # 3. Momentum Acceleration
+        momentum_acceleration = ret_5d - ret_20d
+
+        # 4. Volatility Regime Ratio (5d std vs 60d std)
+        vol_std_5 = ret_1d.rolling(window=5).std()
+        vol_std_60 = ret_1d.rolling(window=60).std()
+        vol_regime_ratio = vol_std_5 / (vol_std_60 + 1e-9)
+
         # Target variables (forward-looking returns)
-        # target_1d_return is the return of close(t+1) compared to close(t)
         t_1d = close.shift(-1) / close - 1.0
-        # target_5d_return is the return of close(t+5) compared to close(t)
+        t_3d = close.shift(-3) / close - 1.0
         t_5d = close.shift(-5) / close - 1.0
+        t_10d = close.shift(-10) / close - 1.0
+        
+        # Target smooth return is average of 3-day, 5-day and 10-day forward return
+        target_smooth = (t_3d + t_5d + t_10d) / 3.0
         
         # Assign back
         idx = group.index
@@ -150,8 +173,17 @@ def compute_technical_indicators(df: pd.DataFrame) -> pd.DataFrame:
         df.loc[idx, "return_5d"] = ret_5d
         df.loc[idx, "return_20d"] = ret_20d
         df.loc[idx, "volatility_20d"] = vol_20d
+        df.loc[idx, "volume_ratio"] = volume_ratio
+        df.loc[idx, "price_position_52w"] = price_position_52w
+        df.loc[idx, "momentum_acceleration"] = momentum_acceleration
+        df.loc[idx, "vol_regime_ratio"] = vol_regime_ratio
         df.loc[idx, "target_1d_return"] = t_1d
         df.loc[idx, "target_5d_return"] = t_5d
+        df.loc[idx, "target_smooth_return"] = target_smooth
+
+    # Compute Relative Strength vs Sector globally (requires cross-sectional grouping)
+    df["rel_strength_sector"] = df["return_1d"] - df.groupby(["sector", "timestamp"])["return_1d"].transform("mean")
+    cols_to_add.append("rel_strength_sector")
 
     # Explicitly cast technical columns as float
     for c in cols_to_add:
@@ -165,7 +197,7 @@ def compute_macro_features(macro_df: pd.DataFrame) -> pd.DataFrame:
     if macro_df.empty:
         return pd.DataFrame()
         
-    print("📊 Computing macroeconomic indicators...")
+    print(" Computing macroeconomic indicators...")
     # Pivot series_id into unique columns
     pivot_df = macro_df.pivot(index="date", columns="series_id", values="value").reset_index()
     
@@ -188,7 +220,7 @@ def compute_lexicon_sentiment(text: str) -> dict:
     pos_words = {"bullish", "growth", "profit", "surge", "gain", "rise", "positive", "beat", "upward", "boost", "success", "higher"}
     neg_words = {"bearish", "loss", "fall", "drop", "decline", "negative", "miss", "downward", "slump", "crash", "plunge", "lower"}
     
-    words = set(str(text).lower().split())
+    words = set(text.lower().split())
     pos_count = len(words.intersection(pos_words))
     neg_count = len(words.intersection(neg_words))
     
@@ -210,28 +242,30 @@ def compute_news_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
     headlines = news_df["title"].fillna("").tolist()
     sentiment_records = []
     
-    if use_finbert and classifier is not None:
+    if use_finbert and _classifier is not None:
         try:
-            # Batch process using the Hugging Face pipeline
-            print("   🤖 Running FinBERT inference in batches...")
-            results = classifier(headlines, batch_size=32, top_k=None)
-            
+            print("    Running FinBERT inference in batches...")
+            results: list[list[dict[str, float | str]]] = _classifier(headlines, batch_size=32, truncation=True, max_length=512)  # type: ignore[assignment]
+
             for item in results:
-                scores = {d["label"].lower(): d["score"] for d in item}
-                pos = scores.get("positive", 0.0)
-                neg = scores.get("negative", 0.0)
-                neu = scores.get("neutral", 0.0)
+                # top_k=None returns list of {label, score} dicts for all classes
+                # Normalise: item may be a single dict or a list of dicts
+                item_list: list[dict[str, float | str]] = [item] if isinstance(item, dict) else item
+                scores = {str(d["label"]).lower(): d["score"] for d in item_list}
+                pos = float(scores.get("positive", 0.0))
+                neg = float(scores.get("negative", 0.0))
+                neu = float(scores.get("neutral", 0.0))
                 sentiment_records.append({
                     "sentiment_pos": pos,
                     "sentiment_neg": neg,
                     "sentiment_neu": neu,
-                    "sentiment_net": pos - neg
+                    "sentiment_net": pos - neg,
                 })
-        except Exception as e:
-            print(f"   ⚠️ FinBERT batch processing failed ({e}). Falling back to rule-based lexicon.")
-            use_fallback = True
-        else:
+
             use_fallback = False
+        except Exception as e:
+            print(f"   [WARNING] FinBERT batch processing failed ({e}). Falling back to rule-based lexicon.")
+            use_fallback = True
     else:
         use_fallback = True
         
@@ -262,7 +296,7 @@ def compute_news_sentiment(news_df: pd.DataFrame) -> pd.DataFrame:
     exploded = exploded[exploded["ticker"] != ""]
     
     # Standardize date component of published_at
-    exploded["date_str"] = pd.to_datetime(exploded["published_at"]).dt.strftime("%Y-%m-%d")
+    exploded["date_str"] = pd.Series(pd.to_datetime(exploded["published_at"])).dt.strftime("%Y-%m-%d")
     
     # Aggregate average sentiment daily by ticker
     daily_sentiment = exploded.groupby(["ticker", "date_str"]).agg({
@@ -285,7 +319,7 @@ def main() -> None:
     news = load_silver_table("news")
     
     if stocks.empty:
-        print("❌ Essential stocks dataset is empty. Cannot compile features.")
+        print("[ERROR] Essential stocks dataset is empty. Cannot compile features.")
         sys.exit(1)
         
     # Combine stock and crypto prices into a unified asset table
@@ -300,7 +334,7 @@ def main() -> None:
     features_df = compute_technical_indicators(prices)
     
     # Convert date keys to datetime for temporal alignment
-    features_df["date_dt"] = pd.to_datetime(features_df["timestamp"])
+    features_df["date_dt"] = pd.Series(pd.to_datetime(features_df["timestamp"].astype(str), errors="coerce"))
     
     # 2. Compute macro features and merge (Asof Join to prevent forward data leakage)
     macro_pivot = compute_macro_features(macro)
@@ -322,7 +356,8 @@ def main() -> None:
     # 3. Compute daily sentiment scores and merge on ticker/date
     sentiment_df = compute_news_sentiment(news)
     if not sentiment_df.empty:
-        features_df["date_str"] = features_df["date_dt"].dt.strftime("%Y-%m-%d")
+        features_df["date_dt"] = pd.Series(pd.to_datetime(features_df["date_dt"], errors="coerce"))
+        features_df["date_str"] = pd.Series(pd.to_datetime(features_df["date_dt"])).dt.strftime("%Y-%m-%d")
         features_df = pd.merge(
             features_df,
             sentiment_df,
@@ -344,7 +379,7 @@ def main() -> None:
         features_df[sc] = features_df[sc].fillna(0.0)
         
     # Standardize final schema columns
-    features_df["date"] = features_df["date_dt"].dt.strftime("%Y-%m-%d")
+    features_df["date"] = pd.Series(pd.to_datetime(features_df["date_dt"])).dt.strftime("%Y-%m-%d")
     
     # Drop intermediate datetime columns
     features_df = features_df.drop(columns=["date_dt", "timestamp"], errors="ignore")
@@ -353,15 +388,16 @@ def main() -> None:
     first_cols = ["symbol", "date", "close", "asset_class"]
     other_cols = [c for c in features_df.columns if c not in first_cols]
     final_df = features_df[first_cols + other_cols]
+    assert isinstance(final_df, pd.DataFrame)
     
-    print(f"\n📊 Generated {len(final_df):,} rows with {len(final_df.columns)} feature columns.")
-    print(f"📊 Missing values in target variables:")
+    print(f"\n Generated {len(final_df):,} rows with {len(final_df.columns)} feature columns.")
+    print(f" Missing values in target variables:")
     print(f"   - target_1d_return: {final_df['target_1d_return'].isnull().sum():,} nulls")
     print(f"   - target_5d_return: {final_df['target_5d_return'].isnull().sum():,} nulls")
     
-    # Write to S3 Gold Table
+    # Write to AWS Storage Gold Table
     write_gold_delta(final_df, "features", mode="overwrite")
-    print("🎉 Phase 6 - Gold Layer feature engineering completed successfully!")
+    print(" Phase 6 - Gold Layer feature engineering completed successfully!")
 
 
 if __name__ == "__main__":

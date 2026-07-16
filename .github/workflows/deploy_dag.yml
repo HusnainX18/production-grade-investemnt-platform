@@ -1,0 +1,27 @@
+name: Deploy Airflow DAGs
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "airflow/dags/**"
+
+jobs:
+  deploy-dags:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Deploy DAG files to Airflow host VM via SFTP
+        uses: appleboy/scp-action@v0.1.4
+        with:
+          host: ${{ secrets.AIRFLOW_VM_HOST }}
+          username: ${{ secrets.AIRFLOW_VM_USERNAME }}
+          key: ${{ secrets.AIRFLOW_VM_SSH_KEY }}
+          port: 22
+          source: "airflow/dags/*"
+          target: "/home/${{ secrets.AIRFLOW_VM_USERNAME }}/airflow/dags/"
+          strip_components: 2 # Copy the files inside airflow/dags directly to target

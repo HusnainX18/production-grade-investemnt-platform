@@ -1,8 +1,8 @@
-"""
+﻿"""
 Bronze-to-Silver Data Processing Pipeline.
 
-Reads raw Bronze Delta tables from S3, applies cleaning and standardisation,
-validates data quality with Great Expectations, and writes cleaned data to
+Reads raw Bronze Delta tables from AWS S3 Data Lake, applies cleaning and standardisation,
+validates data quality with native pandas checks, and writes cleaned data to
 Silver layer Delta tables.
 """
 
@@ -14,120 +14,170 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 if sys.platform.startswith("win"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore
     except Exception:
         pass
 
 import yaml
 import pandas as pd
-from datetime import datetime
+from typing import Union
 from dotenv import load_dotenv
 from deltalake import DeltaTable
-import great_expectations as ge
 from src.utils.s3_helper import get_storage_options, get_s3_path, write_silver_delta
 
 
-def validate_dataset(df: pd.DataFrame, expectation_suite_func, dataset_name: str) -> bool:
+# ---------------------------------------------------------------------------
+# Validation Helpers
+# ---------------------------------------------------------------------------
+
+def _check_not_null(df: pd.DataFrame, col: str) -> tuple[bool, str]:
+    """Return (passed, message) for a not-null check on a column."""
+    n = df[col].isnull().sum()
+    passed = n == 0
+    msg = f"not_null({col})"
+    if not passed:
+        msg += f"  [ERROR]  {n:,} nulls found"
+    return passed, msg
+
+
+def _check_between(
+    df: pd.DataFrame,
+    col: str,
+    min_value: Union[int, float],
+) -> tuple[bool, str]:
+    """Return (passed, message) for a minimum-value range check on a column."""
+    n = (df[col] < min_value).sum()
+    passed = n == 0
+    msg = f"min_value({col} >= {min_value})"
+    if not passed:
+        msg += f"  [ERROR]  {n:,} rows below threshold"
+    return passed, msg
+
+
+def _check_column_exists(df: pd.DataFrame, col: str) -> tuple[bool, str]:
+    """Return (passed, message) for a column-existence check."""
+    passed = col in df.columns
+    msg = f"column_exists({col})"
+    if not passed:
+        msg += "  [ERROR]  column missing"
+    return passed, msg
+
+
+def validate_dataset(
+    df: pd.DataFrame,
+    checks: list[tuple[bool, str]],
+    dataset_name: str,
+) -> bool:
     """
-    Wrap a DataFrame as a Great Expectations dataset, run validations, and
-    print a per-rule summary.
+    Run a list of (bool, message) check tuples and print a per-rule summary.
 
     Args:
-        df: The DataFrame to validate.
-        expectation_suite_func: Callable that accepts a GE dataset and returns
-            (bool success, list[ExpectationValidationResult]).
+        df:           The DataFrame to validate.
+        checks:       List of (passed: bool, message: str) tuples.
         dataset_name: Human-readable label used in log output.
 
     Returns:
-        True if all expectations pass, False otherwise.
+        True if all checks pass, False otherwise.
     """
-    print(f"\n🔍 Running Great Expectations for: {dataset_name.upper()}")
-    ge_df = ge.from_pandas(df)
-    success, results = expectation_suite_func(ge_df)
+    print(f"\n Running data quality checks for: {dataset_name.upper()}")
+    passed_count = sum(1 for ok, _ in checks if ok)
+    failed_count = len(checks) - passed_count
+    print(f"    Results: {passed_count} passed, {failed_count} failed")
 
-    passed_count = sum(1 for r in results if r.success)
-    failed_count = sum(1 for r in results if not r.success)
-    print(f"   📊 Results: {passed_count} passed, {failed_count} failed")
-
-    if not success:
-        print(f"   ⚠️  Data quality warnings in {dataset_name}!")
-        for r in results:
-            if not r.success:
-                col = r.expectation_config.kwargs.get("column", "Table-level")
-                exp_type = r.expectation_config.expectation_type
-                print(f"      ❌ Failed: {exp_type} on '{col}'")
+    all_passed = failed_count == 0
+    if not all_passed:
+        print(f"   [WARNING]  Data quality warnings in {dataset_name}!")
+        for ok, msg in checks:
+            if not ok:
+                print(f"      [ERROR] Failed: {msg}")
     else:
-        print("   ✅ All expectations passed.")
+        print("    All checks passed.")
 
-    return success
+    return all_passed
 
 
-def validate_stocks_suite(ge_df) -> tuple:
-    results = [
-        ge_df.expect_column_values_to_not_be_null("symbol"),
-        ge_df.expect_column_values_to_not_be_null("timestamp"),
-        ge_df.expect_column_values_to_be_between("close", min_value=0.01),
-        ge_df.expect_column_values_to_be_between("volume", min_value=0),
-        ge_df.expect_column_to_exist("sector"),
-        ge_df.expect_column_to_exist("industry"),
+# ---------------------------------------------------------------------------
+# Per-dataset validation suites
+# ---------------------------------------------------------------------------
+
+def validate_stocks(df: pd.DataFrame) -> bool:
+    checks = [
+        _check_not_null(df, "symbol"),
+        _check_not_null(df, "timestamp"),
+        _check_between(df, "close", 0.01),
+        _check_between(df, "volume", 0),
+        _check_column_exists(df, "sector"),
+        _check_column_exists(df, "industry"),
     ]
-    return all(r.success for r in results), results
+    return validate_dataset(df, checks, "stocks")
 
 
-def validate_crypto_suite(ge_df) -> tuple:
-    results = [
-        ge_df.expect_column_values_to_not_be_null("symbol"),
-        ge_df.expect_column_values_to_not_be_null("timestamp"),
-        ge_df.expect_column_values_to_be_between("close", min_value=0.000001),
-        ge_df.expect_column_values_to_be_between("volume", min_value=0),
+def validate_crypto(df: pd.DataFrame) -> bool:
+    checks = [
+        _check_not_null(df, "symbol"),
+        _check_not_null(df, "timestamp"),
+        _check_between(df, "close", 0.000001),
+        _check_between(df, "volume", 0),
     ]
-    return all(r.success for r in results), results
+    return validate_dataset(df, checks, "crypto")
 
 
-def validate_macro_suite(ge_df) -> tuple:
-    results = [
-        ge_df.expect_column_values_to_not_be_null("series_id"),
-        ge_df.expect_column_values_to_not_be_null("date"),
-        ge_df.expect_column_values_to_not_be_null("value"),
+def validate_macro(df: pd.DataFrame) -> bool:
+    checks = [
+        _check_not_null(df, "series_id"),
+        _check_not_null(df, "date"),
+        _check_not_null(df, "value"),
     ]
-    return all(r.success for r in results), results
+    return validate_dataset(df, checks, "macro")
 
 
-def validate_news_suite(ge_df) -> tuple:
-    results = [
-        ge_df.expect_column_values_to_not_be_null("title"),
-        ge_df.expect_column_values_to_not_be_null("published_at"),
-        ge_df.expect_column_values_to_not_be_null("url"),
+def validate_news(df: pd.DataFrame) -> bool:
+    checks = [
+        _check_not_null(df, "title"),
+        _check_not_null(df, "published_at"),
+        _check_not_null(df, "url"),
     ]
-    return all(r.success for r in results), results
+    return validate_dataset(df, checks, "news")
 
 
-def process_stocks(sectors_map: dict) -> bool:
+# ---------------------------------------------------------------------------
+# Processing functions
+# ---------------------------------------------------------------------------
+
+def process_stocks(sectors_map: dict[str, dict[str, str]]) -> bool:
     """Read, clean, validate, and write the Silver stocks table."""
     print("\n--- Processing Stocks ---")
     try:
         dt = DeltaTable(get_s3_path("stocks", layer="bronze"), storage_options=get_storage_options())
         df = dt.to_pandas()
     except Exception as e:
-        print(f"❌ Failed to read Bronze stocks: {e}")
+        print(f"[ERROR] Failed to read Bronze stocks: {e}")
         return False
 
     print(f"   Read {len(df):,} raw rows from Bronze.")
 
     df = df.drop_duplicates(subset=["symbol", "timestamp"])
-    df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.strftime("%Y-%m-%d")
+    df["timestamp"] = pd.Series(pd.to_datetime(df["timestamp"])).dt.strftime("%Y-%m-%d")
     df = df.dropna(subset=["symbol", "timestamp", "close"])
 
-    def get_sector_info(ticker: str) -> pd.Series:
+    def get_sector_info(ticker: str) -> pd.Series:  # type: ignore[type-arg]
         info = sectors_map.get(ticker, {"sector": "Unknown", "industry": "Unknown"})
         return pd.Series([info["sector"], info["industry"]])
 
-    df[["sector", "industry"]] = df["symbol"].apply(get_sector_info)
+    # Use explicit DataFrame construction to avoid the ambiguous DataFrame|Series
+    # return type that Pyright infers from a bare .apply() on a Series.
+    sector_data = pd.DataFrame(
+        df["symbol"].apply(get_sector_info).values.tolist(),
+        columns=["sector", "industry"],
+        index=df.index,
+    )
+    df["sector"] = sector_data["sector"]
+    df["industry"] = sector_data["industry"]
 
-    validate_dataset(df, validate_stocks_suite, "stocks")
+    validate_stocks(df)
     write_silver_delta(df, "stocks", mode="overwrite")
-    print("   ✅ Stocks Silver layer written successfully.")
+    print("    Stocks Silver layer written successfully.")
     return True
 
 
@@ -138,18 +188,18 @@ def process_crypto() -> bool:
         dt = DeltaTable(get_s3_path("crypto", layer="bronze"), storage_options=get_storage_options())
         df = dt.to_pandas()
     except Exception as e:
-        print(f"❌ Failed to read Bronze crypto: {e}")
+        print(f"[ERROR] Failed to read Bronze crypto: {e}")
         return False
 
     print(f"   Read {len(df):,} raw rows from Bronze.")
 
     df = df.drop_duplicates(subset=["symbol", "timestamp"])
-    df["timestamp"] = pd.to_datetime(df["timestamp"]).dt.strftime("%Y-%m-%d")
+    df["timestamp"] = pd.Series(pd.to_datetime(df["timestamp"], errors="coerce")).dt.strftime("%Y-%m-%d")
     df = df.dropna(subset=["symbol", "timestamp", "close"])
 
-    validate_dataset(df, validate_crypto_suite, "crypto")
+    validate_crypto(df)
     write_silver_delta(df, "crypto", mode="overwrite")
-    print("   ✅ Crypto Silver layer written successfully.")
+    print("    Crypto Silver layer written successfully.")
     return True
 
 
@@ -160,18 +210,18 @@ def process_macro() -> bool:
         dt = DeltaTable(get_s3_path("macro", layer="bronze"), storage_options=get_storage_options())
         df = dt.to_pandas()
     except Exception as e:
-        print(f"❌ Failed to read Bronze macro: {e}")
+        print(f"[ERROR] Failed to read Bronze macro: {e}")
         return False
 
     print(f"   Read {len(df):,} raw rows from Bronze.")
 
     df = df.drop_duplicates(subset=["series_id", "date"])
-    df["date"] = pd.to_datetime(df["date"]).dt.strftime("%Y-%m-%d")
+    df["date"] = pd.Series(pd.to_datetime(df["date"], errors="coerce")).dt.strftime("%Y-%m-%d")
     df = df.dropna(subset=["series_id", "date", "value"])
 
-    validate_dataset(df, validate_macro_suite, "macro")
+    validate_macro(df)
     write_silver_delta(df, "macro", mode="overwrite")
-    print("   ✅ Macro Silver layer written successfully.")
+    print("    Macro Silver layer written successfully.")
     return True
 
 
@@ -182,7 +232,7 @@ def process_news() -> bool:
         dt = DeltaTable(get_s3_path("news", layer="bronze"), storage_options=get_storage_options())
         df = dt.to_pandas()
     except Exception as e:
-        print(f"❌ Failed to read Bronze news: {e}")
+        print(f"[ERROR] Failed to read Bronze news: {e}")
         return False
 
     print(f"   Read {len(df):,} raw rows from Bronze.")
@@ -192,11 +242,15 @@ def process_news() -> bool:
     df["matched_tickers"] = df["matched_tickers"].fillna("")
     df = df.dropna(subset=["title", "published_at", "url"])
 
-    validate_dataset(df, validate_news_suite, "news")
+    validate_news(df)
     write_silver_delta(df, "news", mode="overwrite")
-    print("   ✅ News Silver layer written successfully.")
+    print("    News Silver layer written successfully.")
     return True
 
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
 
 def main() -> None:
     load_dotenv()
@@ -211,7 +265,7 @@ def main() -> None:
             sectors_config = yaml.safe_load(f)
         sectors_map = sectors_config.get("sectors", {})
     except Exception as e:
-        print(f"❌ Failed to load {sectors_path}: {e}")
+        print(f"[ERROR] Failed to load {sectors_path}: {e}")
         sys.exit(1)
 
     results = [
@@ -223,9 +277,9 @@ def main() -> None:
 
     print("\n" + "=" * 65)
     if all(results):
-        print("🎉 Bronze to Silver pipeline completed successfully!")
+        print(" Bronze to Silver pipeline completed successfully!")
     else:
-        print("❌ Pipeline completed with ERRORS. Check log output above.")
+        print("[ERROR] Pipeline completed with ERRORS. Check log output above.")
     print("=" * 65)
 
 

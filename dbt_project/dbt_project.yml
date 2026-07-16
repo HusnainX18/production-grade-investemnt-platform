@@ -1,0 +1,28 @@
+name: 'dbt_project'
+version: '1.0.0'
+config-version: 2
+
+# This name must match the profile name in profiles.yml
+profile: 'dbt_project'
+
+# Directory configuration
+model-paths: ["models"]
+analysis-paths: ["analyses"]
+test-paths: ["tests"]
+seed-paths: ["seeds"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+
+clean-targets:
+  - "target"
+  - "dbt_packages"
+
+# Configure materialization strategies
+models:
+  dbt_project:
+    staging:
+      +materialized: view
+    intermediate:
+      +materialized: view
+    marts:
+      +materialized: table

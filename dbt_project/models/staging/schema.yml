@@ -1,0 +1,49 @@
+version: 2
+
+models:
+  - name: stg_stocks
+    description: "Cleaned and typed views of historical stock prices."
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: asset_class
+        tests:
+          - accepted_values:
+              values: ['equity']
+      - name: close
+        tests:
+          - not_null
+
+  - name: stg_crypto
+    description: "Cleaned and typed views of historical cryptocurrency prices."
+    columns:
+      - name: symbol
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: asset_class
+        tests:
+          - accepted_values:
+              values: ['crypto']
+      - name: close
+        tests:
+          - not_null
+
+  - name: stg_macro
+    description: "Typed view of Federal Reserve macro economic data series."
+    columns:
+      - name: series_id
+        tests:
+          - not_null
+      - name: date
+        tests:
+          - not_null
+      - name: value
+        tests:
+          - not_null

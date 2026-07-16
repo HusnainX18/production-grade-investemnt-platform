@@ -30,3 +30,13 @@ htmlcov/
 
 # Notebooks
 .ipynb_checkpoints/
+
+terraform_aws/.terraform/
+*.tfstate
+*.tfstate.backup
+
+dbt_project/logs/
+dbt_project/target/
+
+dbt_project/logs/
+dbt_project/target/

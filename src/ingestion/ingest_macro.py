@@ -1,6 +1,6 @@
-"""
+﻿"""
 FRED Macroeconomic Data Ingestion (Bronze Layer).
-Ingests 10 macroeconomic indicators from FRED into S3.
+Ingests 10 macroeconomic indicators from FRED into AWS S3 Data Lake.
 """
 
 import os
@@ -11,15 +11,15 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 if sys.platform.startswith("win"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore
     except Exception:
         pass
 
 import time
 import yaml
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from src.utils.s3_helper import write_bronze_delta, get_s3_path
 from src.utils.api_helper import get_resilient_session
@@ -79,7 +79,7 @@ def main() -> None:
             observations = response.json().get("observations", [])
 
             if not observations:
-                print(f"  ⚠️  No data returned for {series_id}")
+                print(f"  [WARNING]  No data returned for {series_id}")
                 failed.append(series_id)
                 continue
 
@@ -88,38 +88,38 @@ def main() -> None:
             df = df.dropna(subset=["value"])
             df["series_id"] = series_id
             df["series_name"] = series_name
-            df["ingestion_timestamp"] = datetime.now().isoformat()
+            df["ingestion_timestamp"] = datetime.now(timezone.utc).isoformat()
             df["data_source"] = "fred"
             df = df[["date", "value", "series_id", "series_name", "ingestion_timestamp", "data_source"]]
 
             all_frames.append(df)
-            print(f"  ✅ Retrieved {len(df):,} observations")
+            print(f"   Retrieved {len(df):,} observations")
 
         except Exception as e:
-            print(f"  ❌ Failed: {e}")
+            print(f"  [ERROR] Failed: {e}")
             failed.append(series_id)
 
         time.sleep(0.5)
 
     if not all_frames:
-        print("\n❌ No data retrieved. Check your FRED API key.")
+        print("\n[ERROR] No data retrieved. Check your FRED API key.")
         sys.exit(1)
 
     combined_df = pd.concat(all_frames, ignore_index=True)
 
-    print(f"\n📊 Total rows    : {len(combined_df):,}")
-    print(f"📊 Unique series : {combined_df['series_id'].nunique()}")
+    print(f"\n Total rows    : {len(combined_df):,}")
+    print(f" Unique series : {combined_df['series_id'].nunique()}")
 
     write_bronze_delta(combined_df, "macro", mode="overwrite")
 
     print("\n" + "=" * 60)
     print("INGESTION SUMMARY")
     print("=" * 60)
-    print(f"✅ Successful series : {combined_df['series_id'].nunique()}")
-    print(f"❌ Failed series     : {failed if failed else 'None'}")
+    print(f" Successful series : {combined_df['series_id'].nunique()}")
+    print(f"[ERROR] Failed series     : {failed if failed else 'None'}")
     print(f"📅 Date range        : {combined_df['date'].min()} -> {combined_df['date'].max()}")
     print(f"📦 Total rows        : {len(combined_df):,}")
-    print(f"🪣 S3 path           : {get_s3_path('macro')}")
+    print(f"📦 AWS Storage path : {get_s3_path('macro')}")
     print("=" * 60)
 
 

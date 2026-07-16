@@ -1,0 +1,57 @@
+name: dbt CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  dbt-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install dbt-databricks databricks-sql-connector
+
+      - name: Configure dbt profiles
+        run: |
+          mkdir -p ~/.dbt
+          cat > ~/.dbt/profiles.yml << EOF
+          dbt_project:
+            outputs:
+              dev:
+                type: databricks
+                catalog: workspace
+                schema: default
+                host: ${{ secrets.DBT_DATABRICKS_HOST }}
+                http_path: ${{ secrets.DBT_DATABRICKS_HTTP_PATH }}
+                token: ${{ secrets.DBT_DATABRICKS_TOKEN }}
+                threads: 4
+            target: dev
+          EOF
+
+      - name: dbt debug
+        working-directory: dbt_project
+        run: dbt debug
+
+      - name: dbt run
+        working-directory: dbt_project
+        run: dbt run --target dev
+
+      - name: dbt test
+        working-directory: dbt_project
+        run: dbt test --target dev

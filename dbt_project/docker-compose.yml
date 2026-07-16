@@ -1,0 +1,21 @@
+services:
+  dbt:
+    build:
+      context: ..
+      dockerfile: dbt_project/Dockerfile
+    volumes:
+      - ..:/usr/app
+    env_file:
+      - ../.env
+    working_dir: /usr/app/dbt_project
+
+  processing:
+    build:
+      context: ..
+      dockerfile: dbt_project/Dockerfile
+    volumes:
+      - ..:/usr/app
+    env_file:
+      - ../.env
+    working_dir: /usr/app
+    entrypoint: ["python"]

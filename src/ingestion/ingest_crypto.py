@@ -1,6 +1,6 @@
-"""
+﻿"""
 Alpaca Crypto Historical Data Ingestion (Bronze Layer).
-Ingests 5 years of daily OHLCV bars for 10 crypto assets into S3.
+Ingests 5 years of daily OHLCV bars for 10 crypto assets into AWS S3 Data Lake.
 No API credentials required for Alpaca crypto data.
 """
 
@@ -12,18 +12,19 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 if sys.platform.startswith("win"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore
     except Exception:
         pass
 
 import yaml
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from alpaca.data.historical import CryptoHistoricalDataClient
 from alpaca.data.requests import CryptoBarsRequest
 from alpaca.data.timeframe import TimeFrame
+from alpaca.data.models import BarSet
 from src.utils.s3_helper import write_bronze_delta, get_s3_path
 
 
@@ -71,33 +72,35 @@ def main() -> None:
             start=start_date,
             end=end_date,
         )
-        bars = client.get_crypto_bars(request)
-        df = bars.df.reset_index()
-        print(f"  ✅ Retrieved {len(df):,} rows")
+        response = client.get_crypto_bars(request)
+        if not isinstance(response, BarSet):
+            raise ValueError(f"Unexpected response type from Alpaca: {type(response)}")
+        df = response.df.reset_index()
+        print(f"   Retrieved {len(df):,} rows")
 
     except Exception as e:
-        print(f"  ❌ Fetch failed: {e}")
+        print(f"  [ERROR] Fetch failed: {e}")
         sys.exit(1)
 
     df.columns = [c.lower() for c in df.columns]
-    df["ingestion_timestamp"] = datetime.now().isoformat()
+    df["ingestion_timestamp"] = datetime.now(timezone.utc).isoformat()
     df["data_source"] = "alpaca"
     df["asset_class"] = "crypto"
     df["timestamp"] = df["timestamp"].astype(str)
 
-    print(f"\n📊 Total rows   : {len(df):,}")
-    print(f"📊 Unique symbols: {df['symbol'].nunique()}")
-    print(f"📊 Symbols found : {sorted(df['symbol'].unique().tolist())}")
+    print(f"\n Total rows   : {len(df):,}")
+    print(f" Unique symbols: {df['symbol'].nunique()}")
+    print(f" Symbols found : {sorted(df['symbol'].unique().tolist())}")
 
     write_bronze_delta(df, "crypto", mode="overwrite")
 
     print("\n" + "=" * 60)
     print("INGESTION SUMMARY")
     print("=" * 60)
-    print(f"✅ Successful symbols  : {df['symbol'].nunique()}")
+    print(f" Successful symbols  : {df['symbol'].nunique()}")
     print(f"📅 Date range          : {df['timestamp'].min()} -> {df['timestamp'].max()}")
     print(f"📦 Total rows          : {len(df):,}")
-    print(f"🪣 S3 path             : {get_s3_path('crypto')}")
+    print(f"📦 AWS Storage path  : {get_s3_path('crypto')}")
     print("=" * 60)
 
 

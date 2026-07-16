@@ -1,0 +1,10 @@
+dbt_project:
+  outputs:
+    dev:
+      type: databricks
+      schema: default
+      catalog:  workspace # Target the standard Unity Catalog workspace catalog
+      host: "{{ env_var('DBT_DATABRICKS_HOST') }}"
+      http_path: "{{ env_var('DBT_DATABRICKS_HTTP_PATH') }}"
+      token: "{{ env_var('DBT_DATABRICKS_TOKEN') }}"
+  target: dev

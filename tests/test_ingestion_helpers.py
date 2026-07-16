@@ -1,4 +1,4 @@
-"""
+﻿"""
 Unit tests for Phase 3 ingestion utilities and helpers.
 """
 
@@ -72,8 +72,9 @@ def test_get_storage_options_error_on_missing_env(monkeypatch):
     """
     Test that ValueError is raised if AWS keys are not set.
     """
-    monkeypatch.delenv("AWS_ACCESS_KEY_ID", raising=False)
-    monkeypatch.delenv("AWS_SECRET_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("LOCAL_DEV", raising=False)
+    monkeypatch.delenv("AWS_STORAGE_ACCOUNT", raising=False)
+    monkeypatch.delenv("AWS_STORAGE_KEY", raising=False)
     
     with pytest.raises(ValueError) as excinfo:
         get_storage_options()

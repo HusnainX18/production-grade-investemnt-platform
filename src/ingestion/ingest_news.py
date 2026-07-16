@@ -1,6 +1,6 @@
-"""
+﻿"""
 News API Financial News Ingestion (Bronze Layer).
-Ingests financial news headlines for the equity universe into S3.
+Ingests financial news headlines for the equity universe into AWS S3 Data Lake.
 Note: Free tier provides articles from the last 30 days only.
 """
 
@@ -12,8 +12,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 if sys.platform.startswith("win"):
     try:
-        sys.stdout.reconfigure(encoding="utf-8")
-        sys.stderr.reconfigure(encoding="utf-8")
+        sys.stdout.reconfigure(encoding="utf-8")  # type: ignore
+        sys.stderr.reconfigure(encoding="utf-8")  # type: ignore
     except Exception:
         pass
 
@@ -21,7 +21,7 @@ import time
 import re
 import yaml
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from src.utils.s3_helper import write_bronze_delta, get_s3_path
 from src.utils.api_helper import get_resilient_session
@@ -90,7 +90,7 @@ SEARCH_QUERIES = [
 ]
 
 
-def map_article_to_tickers(title: str, description: str, query_tickers: list) -> str:
+def map_article_to_tickers(title: str, description: str, query_tickers: list[str]) -> str:
     """
     Scan article title and description for keywords matching query_tickers.
 
@@ -114,6 +114,10 @@ def main() -> None:
     load_dotenv()
 
     news_api_key = os.getenv("NEWS_API_KEY")
+    if not news_api_key:
+        print("[ERROR] NEWS_API_KEY is not set in .env — aborting.")
+        sys.exit(1)
+    api_key: str = news_api_key  # narrowed: str | None -> str
 
     end_date = datetime.today()
     start_date = end_date - timedelta(days=29)
@@ -134,6 +138,7 @@ def main() -> None:
     for group in SEARCH_QUERIES:
         query = group["query"]
         tickers = group["tickers"]
+        assert isinstance(tickers, list), f"Expected list for 'tickers', got {type(tickers)}"
         print(f"\nFetching: {tickers}")
 
         try:
@@ -146,7 +151,7 @@ def main() -> None:
                 "to":       end_date.strftime("%Y-%m-%d"),
             }
             headers = {
-                "X-Api-Key": news_api_key
+                "X-Api-Key": api_key
             }
 
             response = session.get(NEWS_BASE_URL, params=params, headers=headers, timeout=30)
@@ -155,7 +160,7 @@ def main() -> None:
             articles = response.json().get("articles", [])
 
             if not articles:
-                print(f"  ⚠️  No articles found for query: {query[:40]}...")
+                print(f"  [WARNING]  No articles found for query: {query[:40]}...")
                 continue
 
             for article in articles:
@@ -169,39 +174,49 @@ def main() -> None:
                     "published_at":        article.get("publishedAt", ""),
                     "query_tickers":       ",".join(tickers),
                     "matched_tickers":     map_article_to_tickers(title, desc, tickers),
-                    "ingestion_timestamp": datetime.now().isoformat(),
+                    "ingestion_timestamp": datetime.now(timezone.utc).isoformat(),
                     "data_source":         "newsapi",
                 })
 
-            print(f"  ✅ Retrieved {len(articles)} articles")
+            print(f"   Retrieved {len(articles)} articles")
 
         except Exception as e:
-            print(f"  ❌ Failed: {e}")
+            print(f"  [ERROR] Failed: {e}")
             failed.append(query[:30])
 
         time.sleep(1)
 
     if not all_articles:
-        print("\n❌ No articles retrieved. Check your NEWS_API_KEY.")
+        print("\n[ERROR] No articles retrieved. Check your NEWS_API_KEY.")
         sys.exit(1)
 
     df = pd.DataFrame(all_articles)
-    df = df.drop_duplicates(subset=["url"])
-    df = df[df["title"].notna() & (df["title"] != "[Removed]")]
+    df = pd.DataFrame(df.drop_duplicates(subset=["url"]))
+    # Use .loc[mask] instead of df[mask]: pandas stubs type .loc with a boolean
+    # indexer as returning DataFrame, whereas __getitem__(mask) is typed as Series.
+    # Wrap in pd.DataFrame() to narrow the inferred type from DataFrame|Series
+    # to DataFrame — Pyright cannot narrow .loc[bool].reset_index() further.
+    title_mask = df["title"].notna() & (df["title"] != "[Removed]")
+    df = pd.DataFrame(df.loc[title_mask].reset_index(drop=True))
 
-    print(f"\n📊 Total articles collected : {len(df):,}")
-    print(f"📊 Unique sources           : {df['source'].nunique()}")
+    print(f"\n Total articles collected : {len(df):,}")
+    print(f" Unique sources           : {df['source'].nunique()}")
 
     write_bronze_delta(df, "news", mode="overwrite")
 
     print("\n" + "=" * 60)
     print("INGESTION SUMMARY")
     print("=" * 60)
-    print(f"✅ Articles collected : {len(df):,}")
+    # Safely build date-range strings: .min()/.max() return scalar objects;
+    # convert to str first, then slice — avoids Pyright unknown-index errors.
+    pub_min = str(df["published_at"].min())[:10]
+    pub_max = str(df["published_at"].max())[:10]
+
+    print(f" Articles collected : {len(df):,}")
     print(f"📰 Unique sources     : {df['source'].nunique()}")
-    print(f"❌ Failed queries     : {failed if failed else 'None'}")
-    print(f"📅 Date range         : {df['published_at'].min()[:10]} -> {df['published_at'].max()[:10]}")
-    print(f"🪣 S3 path            : {get_s3_path('news')}")
+    print(f"[ERROR] Failed queries     : {failed if failed else 'None'}")
+    print(f"📅 Date range         : {pub_min} -> {pub_max}")
+    print(f"📦 AWS Storage path : {get_s3_path('news')}")
     print("=" * 60)
 
 

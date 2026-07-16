@@ -1,86 +1,91 @@
 """
-S3 and Delta Lake storage helper utility.
+AWS S3 and Delta Lake storage helper utility.
 Centralises AWS configuration and Delta Lake write operations.
 """
 
 import os
 import yaml
+from pathlib import Path
+from typing import Literal
+import pandas as pd
 from deltalake import write_deltalake
 
 def get_storage_options():
     """
     Read AWS credentials from the environment and return storage options for deltalake.
     """
-    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
-    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
-    aws_region = os.getenv("AWS_REGION", "us-east-1")
-    
-    if not aws_access_key or not aws_secret_key:
-        raise ValueError(
-            "AWS credentials AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY must be set in the environment."
-        )
+    if os.getenv("LOCAL_DEV", "false").lower() == "true":
+        return {}
         
-    return {
-        "AWS_ACCESS_KEY_ID": aws_access_key,
-        "AWS_SECRET_ACCESS_KEY": aws_secret_key,
-        "AWS_REGION": aws_region,
-        "AWS_S3_ALLOW_UNSAFE_RENAME": "true",
-    }
+    aws_key = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_region = os.getenv("AWS_DEFAULT_REGION", "us-east-1")
+    
+    # Try to load standard AWS CLI environment variables first
+    # If not set, let delta-rs rely on the default provider chain (which reads ~/.aws/credentials)
+    opts = {}
+    if aws_key:
+        opts["aws_access_key_id"] = aws_key
+    if aws_secret:
+        opts["aws_secret_access_key"] = aws_secret
+    if aws_region:
+        opts["aws_region"] = aws_region
+        
+    return opts
 
 def get_s3_path(table_name, layer="bronze"):
     """
-    Read bucket name from configuration and build the target S3 path for the specified layer.
+    Build the target AWS S3 path.
+    
+    Returns:
+        s3://<bucket>/<layer>/<table_name>
     """
-    config_path = "config/config.yaml"
-    if not os.path.exists(config_path):
-        # Fallback if running from tests directory
-        config_path = os.path.join(os.path.dirname(__file__), "../../config/config.yaml")
+    if os.getenv("LOCAL_DEV", "false").lower() == "true":
+        project_root = Path(__file__).resolve().parents[2]
+        return str(project_root / "data" / layer / table_name).replace("\\", "/")
         
-    with open(config_path, "r") as f:
-        config = yaml.safe_load(f)
-        
-    bucket = config["aws"]["s3_bucket"]
+    bucket = os.getenv("S3_BUCKET", "marketpulse-datalake-husnain")
     return f"s3://{bucket}/{layer}/{table_name}"
 
-def write_bronze_delta(df, table_name, mode="overwrite"):
+def write_bronze_delta(df: pd.DataFrame, table_name: str, mode: Literal["append", "overwrite", "error", "ignore"] = "overwrite") -> None:
     """
     Write a Pandas DataFrame directly to S3 as a Bronze Delta table.
     """
     storage_options = get_storage_options()
-    s3_path = get_s3_path(table_name, layer="bronze")
+    path = get_s3_path(table_name, layer="bronze")
     
     write_deltalake(
-        s3_path,
+        path,
         df,
         storage_options=storage_options,
         mode=mode,
         schema_mode="overwrite" if mode == "overwrite" else None,
     )
 
-def write_silver_delta(df, table_name, mode="overwrite"):
+def write_silver_delta(df: pd.DataFrame, table_name: str, mode: Literal["append", "overwrite", "error", "ignore"] = "overwrite") -> None:
     """
     Write a Pandas DataFrame directly to S3 as a Silver Delta table.
     """
     storage_options = get_storage_options()
-    s3_path = get_s3_path(table_name, layer="silver")
+    path = get_s3_path(table_name, layer="silver")
     
     write_deltalake(
-        s3_path,
+        path,
         df,
         storage_options=storage_options,
         mode=mode,
         schema_mode="overwrite" if mode == "overwrite" else None,
     )
 
-def write_gold_delta(df, table_name, mode="overwrite"):
+def write_gold_delta(df: pd.DataFrame, table_name: str, mode: Literal["append", "overwrite", "error", "ignore"] = "overwrite") -> None:
     """
     Write a Pandas DataFrame directly to S3 as a Gold Delta table.
     """
     storage_options = get_storage_options()
-    s3_path = get_s3_path(table_name, layer="gold")
+    path = get_s3_path(table_name, layer="gold")
     
     write_deltalake(
-        s3_path,
+        path,
         df,
         storage_options=storage_options,
         mode=mode,
