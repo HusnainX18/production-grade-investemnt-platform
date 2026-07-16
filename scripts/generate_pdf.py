@@ -1,5 +1,5 @@
-import sys
 import os
+import sys
 from fpdf import FPDF
 
 class PDF(FPDF):
@@ -9,7 +9,6 @@ class PDF(FPDF):
             self.set_text_color(100, 110, 120)
             self.cell(0, 10, "MarketPulse Pipeline Documentation", border=0, align="R")
             self.ln(12)
-            # Subtle header line
             self.set_draw_color(200, 200, 200)
             self.line(self.l_margin, self.get_y() - 2, 210 - self.r_margin, self.get_y() - 2)
 
@@ -67,7 +66,6 @@ def build_pdf():
     pdf.cell(0, 12, "Contents", ln=True)
     pdf.ln(5)
     
-    # TOC Entries
     toc = [
         ("1  Project Overview", 3),
         ("2  Data Extraction Zone", 3),
@@ -106,16 +104,17 @@ def build_pdf():
     
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(51, 65, 85)
-    p1 = ("MarketPulse is an end-to-end global markets data platform designed to ingest, process, "
-          "and serve financial market data at scale. The system architecture is built upon a professional "
+    p1 = ("MarketPulse is a production-grade, end-to-end global markets data platform designed to ingest, process, "
+          "and serve financial market data at scale. The platform architecture is built upon a professional "
           "data stack utilizing cloud infrastructure, big data transformation tools, and machine learning "
           "operations (MLOps).\n\n"
           "The platform integrates real-time stock quotes and cryptocurrency prices, processes the raw "
           "data through a strict Medallion Architecture (Bronze -> Silver -> Gold), and computes advanced "
           "technical and macroeconomic indicators. A core component of the system is the integration of "
           "a FinBERT sentiment analysis pipeline alongside a predictive return-forecasting model designed "
-          "to forecast next-day price movements and target Sharpe ratios.")
-    pdf.multi_cell(0, 5, p1)
+          "to forecast next-day price movements and target Sharpe ratios. This document serves as the absolute "
+          "system architecture specification manual for the platform's deployment.")
+    pdf.multi_cell(0, 5.2, p1)
     pdf.ln(8)
 
     pdf.set_font("Helvetica", "B", 16)
@@ -126,9 +125,9 @@ def build_pdf():
     
     p2 = ("This layer handles the complex ingestion of both high-frequency streaming data and historical "
           "batch data from disparate financial and macroeconomic APIs. It acts as the foundational data "
-          "gateway for the entire system.")
+          "gateway for the entire system, isolating external APIs from downstream processing.")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p2)
+    pdf.multi_cell(0, 5.2, p2)
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 12)
@@ -136,23 +135,25 @@ def build_pdf():
     pdf.set_font("Helvetica", "", 10)
     
     sources = [
-        ("Alpaca API: ", "Serves as the primary source for real-time market trade quotes. A persistent "
-         "WebSocket connection streams live quotes directly into the cloud infrastructure, acting as the "
-         "high-frequency data producer."),
-        ("yfinance (Yahoo Finance): ", "Acts as the historical data bootstrap. The batch pipeline runs python "
+        ("Alpaca API (Streaming Ticks): ", "Serves as the primary source for real-time market trade quotes. "
+         "A persistent TCP/IP WebSocket connection streams live stock and cryptocurrency trade ticks directly into "
+         "the Kinesis ingestion pipeline. This is handled by a streaming daemon producer (aws_producer.py) that "
+         "handles connection buffering and JSON message parsing, capturing raw tick data as-is."),
+        ("yfinance (Yahoo Finance API): ", "Acts as the historical data bootstrap. The batch pipeline runs python "
          "scripts to pull a 5-year retrospective of daily OHLCV (Open, High, Low, Close, Volume) data required for "
-         "model training."),
-        ("FRED (Federal Reserve Economic Data): ", "Ingests key macroeconomic indicators (e.g., consumer price "
-         "index, interest rates, GDP growth) to provide the models with broader economic context."),
-        ("NewsAPI \& FinBERT: ", "NewsAPI continuously pulls live financial headlines. These raw text strings "
-         "are immediately processed by FinBERT (a domain-adapted NLP model), which classifies the text and "
-         "generates sentiment analysis scores (Positive, Negative, Neutral) mapped to specific market tickers.")
+         "baseline model training. This ensures the ML models have a rich historical baseline of prices and trading volume."),
+        ("FRED (Federal Reserve Economic Data): ", "Ingests key macroeconomic indicators (e.g., consumer price index, "
+         "federal funds interest rates, GDP growth metrics, and inflation expectations) at monthly intervals to provide "
+         "the predictive models with broader economic context, serving as macro indicators in the feature store."),
+        ("NewsAPI \& FinBERT Pipeline: ", "NewsAPI continuously pulls live financial headlines. These raw text strings "
+         "are immediately processed by FinBERT (a domain-adapted NLP transformer model), which tokenizes the text "
+         "and generates sentiment analysis scores (Positive, Negative, Neutral weights) mapped to specific market tickers.")
     ]
     for title, desc in sources:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
 
     # ─── PAGE 4: STORAGE INTEGRATION & ARCHITECTURAL DEVIATIONS ───────────────
     pdf.add_page()
@@ -163,18 +164,19 @@ def build_pdf():
     pdf.set_font("Helvetica", "", 10)
     
     storage = [
-        ("AWS Kinesis Streams: ", "A serverless, auto-scaling streaming queue configured in On-Demand mode. "
+        ("AWS Kinesis Data Streams: ", "A serverless, auto-scaling streaming queue configured in On-Demand mode. "
          "It acts as a buffer for the live quote WebSocket firehose from the Alpaca producer before it enters "
-         "the lakehouse."),
+         "the lakehouse, preventing data loss during spikes in market volatility and trading volume."),
         ("Amazon S3 Data Lake (Delta Lake storage): ", "Serves as the secure enterprise data lake. S3 partitions "
          "act as the landing zones for the raw 5-year historical OHLCV batch, processed FinBERT sentiment scores, "
-         "and FRED macroeconomic files, partitioned into raw (Bronze), cleaned (Silver), and aggregates (Gold) delta tables.")
+         "and FRED macroeconomic files. The storage buckets are partitioned into Bronze (raw), Silver (cleansed), "
+         "and Gold (aggregates) delta tables, providing ACID transactional guarantees and time-travel capability.")
     ]
     for title, desc in storage:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 16)
@@ -187,7 +189,7 @@ def build_pdf():
           "QuickSight and managed AWS SageMaker ML Endpoints), this architecture deliberately deviates in the "
           "Serving and MLOps layers to prioritize cost-efficiency, low-latency execution, and microservice flexibility.")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p3)
+    pdf.multi_cell(0, 5.2, p3)
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 12)
@@ -198,7 +200,7 @@ def build_pdf():
         ("Original Plan: ", "Serve analytics via Amazon Redshift Serverless and AWS QuickSight BI dashboards."),
         ("Implemented Architecture: ", "The Databricks Gold Layer is queried directly via a custom Streamlit dashboard "
          "(dashboard/app.py), which pulls historical charts from Databricks SQL Warehouse and queries live quote caches "
-         "from Amazon DynamoDB."),
+         "from Amazon DynamoDB. If credentials are not provided, it falls back to a local sqlite database (analytics.db)."),
         ("The Trade-off: ", "We traded the drag-and-drop convenience of AWS QuickSight for the development overhead "
          "of building a custom python-based dashboard. However, the Streamlit dashboard provides a tailored, "
          "high-performance execution terminal interface that standard BI templates cannot easily replicate."),
@@ -209,9 +211,9 @@ def build_pdf():
     ]
     for title, desc in streamlit_points:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
 
     # ─── PAGE 5: DECOUPLED Registry & DATABRICKS TRANSFORMATION ──────────────
     pdf.add_page()
@@ -238,9 +240,9 @@ def build_pdf():
     ]
     for title, desc in mlflow_points:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 16)
@@ -249,10 +251,10 @@ def build_pdf():
     pdf.line(pdf.l_margin, pdf.get_y(), 210 - pdf.r_margin, pdf.get_y())
     pdf.ln(5)
     
-    p4 = ("This layer enforces the Medallion Architecture pattern (Raw -> Silver -> Gold). It cleans, "
+    p4 = ("This layer enforces the Medallion Architecture pattern (Raw -> Silver -> Gold) on S3. It cleans, "
           "standardizes, and engineers the raw ingestion streams into a mathematical state ready for machine learning.")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p4)
+    pdf.multi_cell(0, 5.2, p4)
     pdf.ln(5)
     
     medallion = [
@@ -266,13 +268,13 @@ def build_pdf():
          "fundamental, and sentiment features."),
         ("Great Expectations / data_quality.py: ", "Runs 19 automated data quality validation checks across the "
          "Bronze, Silver, and Gold layers (verifying positive prices, logical high/low boundaries, and non-empty arrays) "
-         "prior to model training.")
+         "using verify_bronze.py, verify_silver.py, and verify_gold.py scripts prior to model training.")
     ]
     for title, desc in medallion:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
 
     # ─── PAGE 6: MLOPS, SERVING, ORCHESTRATION ────────────────────────────────
     pdf.add_page()
@@ -287,7 +289,7 @@ def build_pdf():
     p5 = ("This layer isolates the heavy computational workload required to train, validate, and track the "
           "predictive machine learning models.")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p5)
+    pdf.multi_cell(0, 5.2, p5)
     pdf.ln(5)
     
     ml = [
@@ -298,9 +300,9 @@ def build_pdf():
     ]
     for title, desc in ml:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 16)
@@ -311,7 +313,7 @@ def build_pdf():
     
     p6 = ("This layer handles live serving and client requests with sub-millisecond latency.")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p6)
+    pdf.multi_cell(0, 5.2, p6)
     pdf.ln(5)
     
     serving = [
@@ -323,9 +325,9 @@ def build_pdf():
     ]
     for title, desc in serving:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 16)
@@ -337,7 +339,7 @@ def build_pdf():
     p7 = ("The entire architecture is fully automated and governed by Apache Airflow running in local Docker containers. "
           "The pipeline is divided into five Directed Acyclic Graphs (DAGs):")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p7)
+    pdf.multi_cell(0, 5.2, p7)
     pdf.ln(5)
     
     dags = [
@@ -351,9 +353,9 @@ def build_pdf():
     ]
     for title, desc in dags:
         pdf.set_font("Helvetica", "B", 10)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 10)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
 
     # ─── PAGE 7: SYSTEM SYNTHESIS & END-TO-END FLOW ───────────────────────────
     pdf.add_page()
@@ -369,7 +371,7 @@ def build_pdf():
           "detailing how independent cloud and data assets communicate, their discrete engineering goals, "
           "and the rationalization behind strategic departures from the initial project specification.")
     pdf.set_font("Helvetica", "", 10)
-    pdf.multi_cell(0, 5, p8)
+    pdf.multi_cell(0, 5.2, p8)
     pdf.ln(5)
 
     pdf.set_font("Helvetica", "B", 12)
@@ -403,7 +405,7 @@ def build_pdf():
         "and MLflow for prediction metrics, while QuickSight queries Redshift."
     ]
     for p in protocols:
-        pdf.multi_cell(0, 5, p)
+        pdf.multi_cell(0, 5.2, p)
         pdf.ln(3)
 
     # ─── PAGE 8: TOOL OBJECTIVES MATRIX ───────────────────────────────────────
@@ -417,7 +419,7 @@ def build_pdf():
     pdf.set_font("Helvetica", "", 10)
     p_mat = ("To justify the footprint of each technological selection, the system isolates duties across "
              "clear boundaries, ensuring high concurrency, cost-efficiency, and low serving latencies:")
-    pdf.multi_cell(0, 5, p_mat)
+    pdf.multi_cell(0, 5.2, p_mat)
     pdf.ln(5)
 
     # Matrix Table (A4 printable width is 170mm)
@@ -459,9 +461,9 @@ def build_pdf():
     ]
     for title, desc in exps:
         pdf.set_font("Helvetica", "B", 9.5)
-        pdf.write(5, " - " + title)
+        pdf.write(5.2, " - " + title)
         pdf.set_font("Helvetica", "", 9.5)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
 
     # ─── PAGE 9: STRATEGIC RE-ARCHITECTURE & TRADE-OFFS ───────────────────────
     pdf.add_page()
@@ -475,7 +477,7 @@ def build_pdf():
     p_opt = ("The implemented architecture purposefully diverges from the initial supervisor guidelines "
              "in the MLOps and serving layers. Evaluating these changes highlights clear architectural "
              "trade-offs and significant operational cost containment:")
-    pdf.multi_cell(0, 5, p_opt)
+    pdf.multi_cell(0, 5.2, p_opt)
     pdf.ln(5)
     
     tradeoffs = [
@@ -501,7 +503,7 @@ def build_pdf():
         pdf.set_font("Helvetica", "B", 9.5)
         pdf.write(5.5, title + "\n")
         pdf.set_font("Helvetica", "", 9.5)
-        pdf.write(5, desc + "\n\n")
+        pdf.write(5.2, desc + "\n\n")
 
     # Save to file
     out_pdf = "docs/architecture_documentation.pdf"
