@@ -1,0 +1,117 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    filecolor=magenta,      
+    urlcolor=cyan,
+    pdftitle={MarketPulse Platform Documentation},
+    pdfpagemode=FullScreen,
+}
+
+\definecolor{codegreen}{rgb}{0,0.6,0}
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+\definecolor{codepurple}{rgb}{0.58,0,0.82}
+\definecolor{backcolour}{rgb}{0.95,0.95,0.92}
+
+\lstdefinestyle{mystyle}{
+    backgroundcolor=\color{backcolour},   
+    commentstyle=\color{codegreen},
+    keywordstyle=\color{magenta},
+    numberstyle=\tiny\color{codegray},
+    stringstyle=\color{codepurple},
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,         
+    breaklines=true,                 
+    captionpos=b,                    
+    keepspaces=true,                 
+    numbers=left,                    
+    numbersep=5pt,                  
+    showspaces=false,                
+    showstringspaces=false,
+    showtabs=false,                  
+    tabsize=2
+}
+\lstset{style=mystyle}
+
+\title{\textbf{MarketPulse: A Real-Time Quantitative Trading \& MLOps Data Platform}}
+\author{\textbf{Intern A} \\ Department of Platform Engineering}
+\date{July 16, 2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+\newpage
+
+\section{Project Overview}
+MarketPulse is a global markets quantitative data platform engineered to ingest, process, transform, and serve stock and cryptocurrency financial data at scale. The platform operates on a medallion architecture model, utilizing a hybrid structure that combines real-time streaming ingestion with scheduled batch transformations and machine learning prediction pipelines.
+
+\subsection{Objectives}
+\begin{itemize}
+    \item Ingest real-time asset pricing data from public WebSockets/REST endpoints.
+    \item Orchestrate a Bronze $\rightarrow$ Silver $\rightarrow$ Gold Medallion Pipeline in AWS S3 and Databricks.
+    \item Compute technical analysis indicators (RSI, MACD, Bollinger Bands) and macroeconomic metrics.
+    \item Train an LSTM Regressor model to project asset return vectors and log experiments to an MLflow Model Registry.
+    \item Deploy an end-to-end serverless data serving layer utilizing Amazon Redshift Serverless and Amazon QuickSight.
+\end{itemize}
+
+\section{System Architecture}
+The system divides compute and storage layers to minimize cost while maximizing analytical query performance. 
+
+\subsection{Medallion Storage Layers (S3)}
+Data is organized into three distinct structural layers in AWS S3:
+\begin{enumerate}
+    \item \textbf{Bronze (Raw):} Captures raw JSON and CSV tick metrics directly from brokers without any schema enforcement.
+    \item \textbf{Silver (Cleaned):} Cleansed tables containing deduplicated records, corrected null values, and validated transaction dates.
+    \item \textbf{Gold (Analytics-Ready):} Joined tables containing daily asset values, macro variables, calculated technical indicators, and feature vectors.
+\end{enumerate}
+
+\subsection{Data Flow Schema}
+Ingested events move sequentially through:
+\[
+\text{Alpaca API} \xrightarrow{\text{Kinesis Stream}} \text{Bronze (S3)} \xrightarrow{\text{PySpark Cleaning}} \text{Silver (S3)} \xrightarrow{\text{dbt compilation}} \text{Gold (S3)} \xrightarrow{\text{Redshift Loader}} \text{BI / Serving}
+\]
+
+\section{Key Technical Decisions \& Workarounds}
+Building this production-grade system required overcoming several platform incompatibilities:
+
+\subsection{dbt Core \& Python 3.14 Meta Compatibility}
+During deployment, compiling dbt models under pre-release Python 3.14 caused a fatal crash in Pydantic V1 metaclass fields. We resolved this by patching the virtual environment validator module (\texttt{pydantic/v1/validators.py}) to dynamically evaluate PEP 649 deferred annotations and handle \texttt{FieldInfo} parameters gracefully.
+
+\subsection{AWS Redshift Serverless Network Provisioning}
+Redshift Serverless requires subnet configurations across at least three unique Availability Zones (AZs) in a VPC to create a workgroup. Since the sandbox account lacked a default VPC, we wrote a dynamic provisioning script (\texttt{setup_redshift.py}) that automatically discovers the custom VPC, allocates two extra subnets in \texttt{us-east-1b} and \texttt{us-east-1c}, links them to the public route table, and creates the serverless workgroup.
+
+\subsection{Delta-RS S3 File Bypassing}
+To access S3 Delta tables from Databricks Serverless clusters without JVM class loader conflicts, we utilized the Rust-backed \texttt{deltalake} engine (\texttt{DeltaTable}) to handle reading and writing Delta format transactions directly from S3.
+
+\section{Orchestration \& Data Quality}
+Workflow orchestration is managed locally via Apache Airflow running in Docker containers, configured with root access to map the host's Docker socket (\texttt{/var/run/docker.sock}) to execute operator containers.
+
+Data quality is checked at the gold layer using a customized execution script resembling Great Expectations syntax. It checks:
+\begin{itemize}
+    \item Non-null requirements on critical fields (\texttt{symbol}, \texttt{timestamp}).
+    \item Value constraints (e.g., closing price $> 0.01$).
+    \item Unique constraints to prevent duplicate database loads.
+\end{itemize}
+
+\section{BI Dashboard \& ML Models}
+The ML pipeline trains an LSTM neural network on the Gold features to predict 5-day return vectors. The model registry and experiment runs are logged in \texttt{mlruns.db}. 
+
+Redshift Serverless serves as the analytical backend, queryable directly by Amazon QuickSight and Streamlit. The QuickSight dashboard features:
+\begin{enumerate}
+    \item A bar chart of top buy/sell recommendations by predicted returns.
+    \item A line chart displaying the ML portfolio equity curve vs. the benchmark.
+\end{enumerate}
+
+\end{document}
